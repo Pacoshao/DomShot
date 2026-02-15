@@ -44,7 +44,16 @@
     
     const target = hoveredElement;
     if (target) {
-      stopSelection();
+      // Immediately stop tracking but keep the toolbar
+      isSelecting = false;
+      document.removeEventListener('mouseover', onMouseOver, true);
+      document.removeEventListener('click', onClick, true);
+      
+      // Remove highlight before capture
+      if (hoveredElement) {
+        hoveredElement.classList.remove('domshot-highlight');
+      }
+      
       captureElement(target);
     }
   }
@@ -53,8 +62,10 @@
     const settings = (await chrome.storage.local.get('domshotSettings')).domshotSettings || { format: 'png', pixelRatio: 2 };
     
     // Show loading state
-    const originalText = toolbar.querySelector('span').innerText;
-    toolbar.querySelector('span').innerText = '正在生成并下载...';
+    const originalText = toolbar ? toolbar.querySelector('span').innerText : '选择要截图的元素...';
+    if (toolbar) {
+      toolbar.querySelector('span').innerText = '正在生成并下载...';
+    }
     
     try {
       const options = {
@@ -85,15 +96,21 @@
       link.href = dataUrl;
       link.click();
       
-      toolbar.querySelector('span').innerText = '保存成功！';
+      if (toolbar) {
+        toolbar.querySelector('span').innerText = '保存成功！';
+      }
       setTimeout(() => stopSelection(), 1500);
     } catch (error) {
       console.error('DomShot capture error:', error);
-      toolbar.querySelector('span').innerText = '生成失败，请重试。';
-      setTimeout(() => {
-        toolbar.querySelector('span').innerText = originalText;
-        startSelection(); // resume selection
-      }, 3000);
+      if (toolbar) {
+        toolbar.querySelector('span').innerText = '生成失败，请重试。';
+        setTimeout(() => {
+          if (toolbar) {
+            toolbar.querySelector('span').innerText = originalText;
+          }
+          startSelection(); // resume selection
+        }, 3000);
+      }
     }
   }
 
