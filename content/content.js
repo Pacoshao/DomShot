@@ -95,7 +95,7 @@
     toolbar.id = 'domshot-toolbar';
     toolbar.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span class="status" style="font-size: 12px; color: #666;">鼠标点击或按 Enter 截图</span>
+        <span class="status" style="font-size: 12px; color: #666;">鼠标单击目标元素进行截图</span>
         <span class="element-info" style="font-size: 14px; color: #007bff; font-family: monospace; font-weight: bold;">等待选择...</span>
         <div style="font-size: 10px; color: #999; margin-top: 2px;">
           Esc 退出 | ↑ 选父级 | ↓ 选子级

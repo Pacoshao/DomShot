@@ -1,3 +1,15 @@
+const formatSelect = document.getElementById('format');
+const pixelRatioContainer = document.getElementById('pixel-ratio-container');
+
+// Handle format change to hide/show scale options
+formatSelect.addEventListener('change', () => {
+  if (formatSelect.value === 'svg') {
+    pixelRatioContainer.style.display = 'none';
+  } else {
+    pixelRatioContainer.style.display = 'block';
+  }
+});
+
 document.getElementById('start-picker').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
