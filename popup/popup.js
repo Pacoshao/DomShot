@@ -1,24 +1,61 @@
 const formatSelect = document.getElementById('format');
+const pixelRatioSelect = document.getElementById('pixel-ratio');
+const actionSelect = document.getElementById('action');
+const transparentSelect = document.getElementById('transparent');
 const pixelRatioContainer = document.getElementById('pixel-ratio-container');
 
-// Handle format change to hide/show scale options
-formatSelect.addEventListener('change', () => {
+// Load saved settings
+async function loadSettings() {
+  const result = await chrome.storage.local.get('domshotSettings');
+  if (result.domshotSettings) {
+    const s = result.domshotSettings;
+    if (s.format) formatSelect.value = s.format;
+    if (s.pixelRatio) pixelRatioSelect.value = s.pixelRatio;
+    if (s.action) actionSelect.value = s.action;
+    if (s.transparent) transparentSelect.value = s.transparent;
+    
+    // Trigger format change visibility
+    updateVisibility();
+  }
+}
+
+function updateVisibility() {
   if (formatSelect.value === 'svg') {
     pixelRatioContainer.style.display = 'none';
   } else {
     pixelRatioContainer.style.display = 'block';
   }
+}
+
+// Handle format change to hide/show scale options
+formatSelect.addEventListener('change', updateVisibility);
+
+// Save settings whenever they change
+[formatSelect, pixelRatioSelect, actionSelect, transparentSelect].forEach(el => {
+  el.addEventListener('change', async () => {
+    await chrome.storage.local.set({ 
+      domshotSettings: { 
+        format: formatSelect.value, 
+        pixelRatio: pixelRatioSelect.value, 
+        action: actionSelect.value, 
+        transparent: transparentSelect.value 
+      } 
+    });
+  });
 });
+
+// Initialize
+loadSettings();
 
 document.getElementById('start-picker').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
-  const format = document.getElementById('format').value;
-  const pixelRatio = document.getElementById('pixel-ratio').value;
-  const action = document.getElementById('action').value;
-  const transparent = document.getElementById('transparent').value;
+  // Settings are already saved via 'change' listeners, but we can ensure they are up to date
+  const format = formatSelect.value;
+  const pixelRatio = pixelRatioSelect.value;
+  const action = actionSelect.value;
+  const transparent = transparentSelect.value;
 
-  // Save settings
   await chrome.storage.local.set({ 
     domshotSettings: { format, pixelRatio, action, transparent } 
   });

@@ -9,7 +9,7 @@
     toolbar.id = 'domshot-toolbar';
     toolbar.innerHTML = `
       <span style="font-size: 14px; color: #333;">选择要截图的元素...</span>
-      <button class="cancel">退出</button>
+      <button class="cancel">退出(ESC)</button>
     `;
     document.body.appendChild(toolbar);
     toolbar.querySelector('.cancel').onclick = stopSelection;
