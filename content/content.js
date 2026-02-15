@@ -25,16 +25,57 @@
   function onMouseOver(e) {
     if (!isSelecting) return;
     e.stopPropagation();
+    
+    // Don't highlight the toolbar itself
+    if (toolbar && (toolbar.contains(e.target) || e.target === toolbar)) {
+      return;
+    }
+
+    updateHighlight(e.target);
+  }
+
+  function updateHighlight(element) {
     if (hoveredElement) {
       hoveredElement.classList.remove('domshot-highlight');
     }
-    hoveredElement = e.target;
-    // Don't highlight the toolbar itself
-    if (toolbar && (toolbar.contains(hoveredElement) || hoveredElement === toolbar)) {
-      hoveredElement = null;
-      return;
+    hoveredElement = element;
+    if (hoveredElement) {
+      hoveredElement.classList.add('domshot-highlight');
+      updateToolbarInfo(hoveredElement);
     }
-    hoveredElement.classList.add('domshot-highlight');
+  }
+
+  function updateToolbarInfo(element) {
+    if (!toolbar) return;
+    const tagName = element.tagName.toLowerCase();
+    const className = element.className && typeof element.className === 'string' 
+      ? '.' + element.className.split(' ').filter(c => !c.includes('domshot')).join('.')
+      : '';
+    const id = element.id ? '#' + element.id : '';
+    
+    const infoSpan = toolbar.querySelector('.element-info');
+    if (infoSpan) {
+      infoSpan.innerText = `${tagName}${id}${className.length > 20 ? className.substring(0, 20) + '...' : className}`;
+    }
+  }
+
+  function onKeyDown(e) {
+    if (!isSelecting) return;
+
+    if (e.key === 'Escape') {
+      stopSelection();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (hoveredElement && hoveredElement.parentElement && hoveredElement.parentElement !== document.body) {
+        updateHighlight(hoveredElement.parentElement);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      // Try to pick first child
+      if (hoveredElement && hoveredElement.firstElementChild) {
+        updateHighlight(hoveredElement.firstElementChild);
+      }
+    }
   }
 
   function onClick(e) {
@@ -44,41 +85,65 @@
     
     const target = hoveredElement;
     if (target) {
-      // Immediately stop tracking but keep the toolbar
-      isSelecting = false;
-      document.removeEventListener('mouseover', onMouseOver, true);
-      document.removeEventListener('click', onClick, true);
-      
-      // Remove highlight before capture
-      if (hoveredElement) {
-        hoveredElement.classList.remove('domshot-highlight');
-      }
-      
       captureElement(target);
     }
   }
 
-  async function captureElement(element) {
-    const settings = (await chrome.storage.local.get('domshotSettings')).domshotSettings || { format: 'png', pixelRatio: 2 };
-    
-    // Show loading state
-    const originalText = toolbar ? toolbar.querySelector('span').innerText : '选择要截图的元素...';
+  function createToolbar() {
+    if (toolbar) return;
+    toolbar = document.createElement('div');
+    toolbar.id = 'domshot-toolbar';
+    toolbar.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span class="status" style="font-size: 12px; color: #666;">鼠标点击或按 Enter 截图</span>
+        <span class="element-info" style="font-size: 14px; color: #007bff; font-family: monospace; font-weight: bold;">等待选择...</span>
+        <div style="font-size: 10px; color: #999; margin-top: 2px;">
+          Esc 退出 | ↑ 选父级 | ↓ 选子级
+        </div>
+      </div>
+      <button class="cancel">退出</button>
+    `;
+    document.body.appendChild(toolbar);
+    toolbar.querySelector('.cancel').onclick = (e) => {
+      e.stopPropagation();
+      stopSelection();
+    };
+  }
+
+  function removeToolbar() {
     if (toolbar) {
-      toolbar.querySelector('span').innerText = '正在生成并下载...';
+      toolbar.remove();
+      toolbar = null;
+    }
+  }
+
+  async function captureElement(element) {
+    const settings = (await chrome.storage.local.get('domshotSettings')).domshotSettings || { format: 'png', pixelRatio: 2, action: 'download' };
+    
+    // Immediately stop tracking but keep the toolbar
+    isSelecting = false;
+    document.removeEventListener('mouseover', onMouseOver, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKeyDown, true);
+    
+    if (hoveredElement) {
+      hoveredElement.classList.remove('domshot-highlight');
+    }
+
+    if (toolbar) {
+      toolbar.querySelector('.status').innerText = '正在生成并处理...';
+      toolbar.querySelector('.element-info').innerText = '请稍等';
     }
     
     try {
       const options = {
         pixelRatio: parseFloat(settings.pixelRatio),
-        backgroundColor: '#ffffff', // Default white background if transparent
-        style: {
-          // Fix some common issues with capturing
-          'margin': '0'
-        }
+        backgroundColor: settings.transparent === 'true' ? null : '#ffffff',
+        style: { 'margin': '0' }
       };
 
       let dataUrl;
-      let filename = `domshot-${Date.now()}`;
+      let filename = `domshot-${document.title.substring(0, 20)}-${Date.now()}`;
 
       if (settings.format === 'svg') {
         dataUrl = await htmlToImage.toSvg(element, options);
@@ -91,26 +156,26 @@
         filename += '.png';
       }
 
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = dataUrl;
-      link.click();
-      
-      if (toolbar) {
-        toolbar.querySelector('span').innerText = '保存成功！';
+      if (settings.action === 'clipboard' && settings.format !== 'svg') {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob })
+        ]);
+        if (toolbar) toolbar.querySelector('.status').innerText = '已成功复制到剪贴板！';
+      } else {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = dataUrl;
+        link.click();
+        if (toolbar) toolbar.querySelector('.status').innerText = '保存成功！';
       }
+      
       setTimeout(() => stopSelection(), 1500);
     } catch (error) {
       console.error('DomShot capture error:', error);
-      if (toolbar) {
-        toolbar.querySelector('span').innerText = '生成失败，请重试。';
-        setTimeout(() => {
-          if (toolbar) {
-            toolbar.querySelector('span').innerText = originalText;
-          }
-          startSelection(); // resume selection
-        }, 3000);
-      }
+      if (toolbar) toolbar.querySelector('.status').innerText = '生成失败';
+      setTimeout(() => stopSelection(), 3000);
     }
   }
 
@@ -120,6 +185,7 @@
     createToolbar();
     document.addEventListener('mouseover', onMouseOver, true);
     document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKeyDown, true);
   }
 
   function stopSelection() {
@@ -131,6 +197,7 @@
     }
     document.removeEventListener('mouseover', onMouseOver, true);
     document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKeyDown, true);
   }
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

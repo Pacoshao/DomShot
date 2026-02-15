@@ -3,10 +3,12 @@ document.getElementById('start-picker').addEventListener('click', async () => {
   
   const format = document.getElementById('format').value;
   const pixelRatio = document.getElementById('pixel-ratio').value;
+  const action = document.getElementById('action').value;
+  const transparent = document.getElementById('transparent').value;
 
   // Save settings
   await chrome.storage.local.set({ 
-    domshotSettings: { format, pixelRatio } 
+    domshotSettings: { format, pixelRatio, action, transparent } 
   });
 
   // Inject content script if not already there (though manifest handles it)

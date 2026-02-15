@@ -49,6 +49,22 @@
   <button id="start-picker" class="btn">选择网页元素</button>
   
   <div class="option">
+    <label>操作</label>
+    <select id="action">
+      <option value="download">保存为文件</option>
+      <option value="clipboard">复制到剪贴板 (仅限图片)</option>
+    </select>
+  </div>
+
+  <div class="option">
+    <label>背景</label>
+    <select id="transparent">
+      <option value="false">白色背景 (默认)</option>
+      <option value="true">透明背景</option>
+    </select>
+  </div>
+  
+  <div class="option">
     <label>导出格式</label>
     <select id="format">
       <option value="png">PNG (高清图片)</option>
